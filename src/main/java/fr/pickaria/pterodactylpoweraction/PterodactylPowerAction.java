@@ -51,7 +51,8 @@ public class PterodactylPowerAction {
         initializeTranslator(
                 ResourceBundle.getBundle("PterodactylPowerAction.Bundle", Locale.FRENCH, UTF8ResourceBundleControl.get()),
                 ResourceBundle.getBundle("PterodactylPowerAction.Bundle", Locale.ENGLISH, UTF8ResourceBundleControl.get()),
-                ResourceBundle.getBundle("PterodactylPowerAction.Bundle", Locale.GERMAN, UTF8ResourceBundleControl.get())
+                ResourceBundle.getBundle("PterodactylPowerAction.Bundle", Locale.GERMAN, UTF8ResourceBundleControl.get()),
+                ResourceBundle.getBundle("PterodactylPowerAction.Bundle", new Locale("be", "BY"), UTF8ResourceBundleControl.get())
         );
 
         try {
@@ -77,10 +78,18 @@ public class PterodactylPowerAction {
 
     private void initializeTranslator(ResourceBundle... bundles) {
         TranslationRegistry registry = TranslationRegistry.create(Key.key("pickaria:power_action"));
+
         for (ResourceBundle bundle : bundles) {
             registry.registerAll(bundle.getLocale(), bundle, true);
         }
-        registry.defaultLocale(Locale.ENGLISH);
+
+        // Ствараем лакаль для беларускай мовы (кірыліца па змаўчанні)
+        Locale belarusian = new Locale("be", "BY");
+
+        // Калі вы хочаце, каб па змаўчанні была ЛАЦІНКА, выкарыстоўвайце:
+        // Locale belarusian = new Locale("be", "BY", "Latn");
+
+        registry.defaultLocale(belarusian); // Усталёўваем як дэфолтную
         GlobalTranslator.translator().addSource(registry);
     }
 
