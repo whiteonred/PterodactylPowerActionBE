@@ -3,16 +3,18 @@ package fr.pickaria.pterodactylpoweraction;
 import com.velocitypowered.api.proxy.ConnectionRequestBuilder;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
-import fr.pickaria.messager.Messager;
-import fr.pickaria.messager.components.Text;
 import fr.pickaria.pterodactylpoweraction.configuration.ConfigurationLoader;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.audience.ForwardingAudience;
+import net.kyori.adventure.identity.Identity;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.translation.GlobalTranslator;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 import java.util.Optional;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
@@ -26,15 +28,13 @@ public class StartingServer implements ForwardingAudience {
     private final ShutdownManager shutdownManager;
     private final Set<Player> waitingPlayers = ConcurrentHashMap.newKeySet();
     private final Logger logger;
-    private final Messager messager;
     private final AtomicBoolean isStarting = new AtomicBoolean(false);
 
-    public StartingServer(RegisteredServer server, ConfigurationLoader configurationLoader, ShutdownManager shutdownManager, Logger logger, Messager messager) {
+    public StartingServer(RegisteredServer server, ConfigurationLoader configurationLoader, ShutdownManager shutdownManager, Logger logger) {
         this.server = server;
         this.configurationLoader = configurationLoader;
         this.shutdownManager = shutdownManager;
         this.logger = logger;
-        this.messager = messager;
     }
 
     /**
@@ -88,7 +88,7 @@ public class StartingServer implements ForwardingAudience {
     private void informError(Throwable throwable) {
         String serverName = server.getServerInfo().getName();
         logger.error("An error occurred while starting the server '{}'", serverName, throwable);
-        messager.error(this, "failed.to.start.server", new Text(Component.text(serverName)));
+        waitingPlayers.forEach(player -> sendError(player, "failed.to.start.server", Component.text(serverName)));
     }
 
     private void waitForServer() throws ExecutionException, InterruptedException {
@@ -104,8 +104,8 @@ public class StartingServer implements ForwardingAudience {
                 return result.isSuccessful();
             } else if (configurationLoader.getConfiguration().getRedirectToWaitingServerOnKick()) {
                 result.getReasonComponent().ifPresentOrElse(
-                        (reason) -> messager.error(player, "failed.to.redirect.reason", new Text(serverNameComponent), new Text(reason)),
-                        () -> messager.error(player, "failed.to.redirect", new Text(serverNameComponent))
+                        (reason) -> sendError(player, "failed.to.redirect.reason", serverNameComponent, reason),
+                        () -> sendError(player, "failed.to.redirect", serverNameComponent)
                 );
             } else {
                 Optional<Component> reasonComponent = result.getReasonComponent();
@@ -115,9 +115,15 @@ public class StartingServer implements ForwardingAudience {
 
         } catch (CancellationException | ExecutionException | InterruptedException exception) {
             logger.error("An error occurred while redirecting the player '{}' to the server '{}'", player.getUsername(), serverName, exception);
-            messager.error(player, "failed.to.redirect", new Text(serverNameComponent));
+            sendError(player, "failed.to.redirect", serverNameComponent);
         }
         return false;
+    }
+
+    private void sendError(Player audience, String key, Component... arguments) {
+        Component message = Component.translatable(key, arguments).colorIfAbsent(NamedTextColor.RED);
+        Locale locale = audience.getOrDefault(Identity.LOCALE, Locale.getDefault());
+        audience.sendMessage(GlobalTranslator.renderer().render(message, locale));
     }
 
     @Override

@@ -10,17 +10,17 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
-import fr.pickaria.messager.MessageComponent;
-import fr.pickaria.messager.MessageType;
-import fr.pickaria.messager.Messager;
-import fr.pickaria.messager.components.Text;
 import fr.pickaria.pterodactylpoweraction.component.RunCommand;
 import fr.pickaria.pterodactylpoweraction.configuration.ConfigurationLoader;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.translation.GlobalTranslator;
+import net.kyori.adventure.identity.Identity;
 import org.slf4j.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -31,7 +31,6 @@ public class ConnectionListener {
     private final ConfigurationLoader configurationLoader;
     private final Map<String, StartingServer> startingServers = new HashMap<>();
     private final ShutdownManager shutdownManager;
-    private final Messager messager;
 
     ConnectionListener(
             ConfigurationLoader configurationLoader,
@@ -43,7 +42,6 @@ public class ConnectionListener {
         this.proxy = proxy;
         this.logger = logger;
         this.shutdownManager = shutdownManager;
-        this.messager = new Messager();
     }
 
     @Subscribe()
@@ -116,7 +114,7 @@ public class ConnectionListener {
 
     private void notifyPlayerOrDisconnect(Player player, String key) {
         if (player.getCurrentServer().isPresent()) {
-            messager.error(player, key);
+            sendError(player, key);
         } else {
             player.disconnect(Component.translatable(key));
         }
@@ -130,15 +128,14 @@ public class ConnectionListener {
         if (startingServers.containsKey(originalServerName)) {
             playerAddedToWaitingList = startingServers.get(originalServerName).addPlayer(player);
         } else {
-            StartingServer startingServer = new StartingServer(server, configurationLoader, shutdownManager, logger, messager);
+            StartingServer startingServer = new StartingServer(server, configurationLoader, shutdownManager, logger);
             playerAddedToWaitingList = startingServer.addPlayer(player);
             startingServers.put(originalServerName, startingServer);
             // TODO: Should we clear the entry from the map once the server is started?
         }
 
         if (playerAddedToWaitingList) {
-            Component message = messager.format(MessageType.INFO, "starting.server", new Text(Component.text(originalServerName)));
-            player.sendMessage(message);
+            player.sendMessage(translate(player, "starting.server", Component.text(originalServerName)));
         }
     }
 
@@ -197,9 +194,18 @@ public class ConnectionListener {
         String serverName = event.getServer().getServerInfo().getName();
         String serverCommand = "/server " + serverName;
         Component serverNameComponent = Component.text(serverName);
-        MessageComponent goBack = new RunCommand(serverCommand, Component.translatable("go.back.command", serverNameComponent));
-        return serverKickReason.map(component -> messager.format(MessageType.INFO, "kick.reason.message", new Text(serverNameComponent), new Text(component), goBack))
-                .orElseGet(() -> messager.format(MessageType.INFO, "kick.generic.message", new Text(serverNameComponent), goBack));
+        Component goBack = new RunCommand(serverCommand, Component.translatable("go.back.command", serverNameComponent)).getComponent();
+        return serverKickReason.map(component -> translate(event.getPlayer(), "kick.reason.message", serverNameComponent, component, goBack))
+                .orElseGet(() -> translate(event.getPlayer(), "kick.generic.message", serverNameComponent, goBack));
+    }
+
+    private void sendError(Player player, String key, Component... arguments) {
+        player.sendMessage(translate(player, key, arguments).colorIfAbsent(NamedTextColor.RED));
+    }
+
+    private Component translate(Player player, String key, Component... arguments) {
+        Locale locale = player.getOrDefault(Identity.LOCALE, Locale.getDefault());
+        return GlobalTranslator.renderer().render(Component.translatable(key, arguments), locale);
     }
 
     private void scheduleServerShutdown(Player player) {

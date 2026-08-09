@@ -14,14 +14,14 @@ import fr.pickaria.pterodactylpoweraction.configuration.ConfigurationLoader;
 import fr.pickaria.pterodactylpoweraction.configuration.ShutdownBehaviour;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.translation.GlobalTranslator;
-import net.kyori.adventure.translation.TranslationRegistry;
-import net.kyori.adventure.util.UTF8ResourceBundleControl;
+import net.kyori.adventure.translation.TranslationStore;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.text.MessageFormat;
 import java.util.ResourceBundle;
 
 @Plugin(
@@ -49,10 +49,10 @@ public class PterodactylPowerAction {
         this.initializeCommand();
 
         initializeTranslator(
-                ResourceBundle.getBundle("PterodactylPowerAction.Bundle", Locale.FRENCH, UTF8ResourceBundleControl.get()),
-                ResourceBundle.getBundle("PterodactylPowerAction.Bundle", Locale.ENGLISH, UTF8ResourceBundleControl.get()),
-                ResourceBundle.getBundle("PterodactylPowerAction.Bundle", Locale.GERMAN, UTF8ResourceBundleControl.get()),
-                ResourceBundle.getBundle("PterodactylPowerAction.Bundle", new Locale("be", "BY"), UTF8ResourceBundleControl.get())
+                ResourceBundle.getBundle("PterodactylPowerAction.Bundle", Locale.FRENCH),
+                ResourceBundle.getBundle("PterodactylPowerAction.Bundle", Locale.ENGLISH),
+                ResourceBundle.getBundle("PterodactylPowerAction.Bundle", Locale.GERMAN),
+                ResourceBundle.getBundle("PterodactylPowerAction.Bundle", Locale.of("be", "BY"))
         );
 
         try {
@@ -77,14 +77,14 @@ public class PterodactylPowerAction {
     }
 
     private void initializeTranslator(ResourceBundle... bundles) {
-        TranslationRegistry registry = TranslationRegistry.create(Key.key("pickaria:power_action"));
+        TranslationStore.StringBased<MessageFormat> registry = TranslationStore.messageFormat(Key.key("pickaria:power_action"));
 
         for (ResourceBundle bundle : bundles) {
             registry.registerAll(bundle.getLocale(), bundle, true);
         }
 
         // Ствараем лакаль для беларускай мовы (кірыліца па змаўчанні)
-        Locale belarusian = new Locale("be", "BY");
+        Locale belarusian = Locale.of("be", "BY");
 
         // Калі вы хочаце, каб па змаўчанні была ЛАЦІНКА, выкарыстоўвайце:
         // Locale belarusian = new Locale("be", "BY", "Latn");
